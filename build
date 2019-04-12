@@ -1,0 +1,36 @@
+#!/bin/sh
+set -exu
+
+WIRING_PI_REV=8d188fa
+RFUTILS_REV=31c0ea4
+JMX_EXPORTER_VERSION=0.11.0
+
+WIRING_PI_URL="https://git.drogon.net/?p=wiringPi;a=snapshot;h=$WIRING_PI_REV;sf=tgz"
+RFUTILS_URL="https://github.com/ninjablocks/433Utils/archive/$RFUTILS_REV.tar.gz"
+JMX_EXPORTER_URL="https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_EXPORTER_VERSION}/jmx_prometheus_javaagent-${JMX_EXPORTER_VERSION}.jar"
+
+BUILD_DEPS="git g++ make"
+
+apt-get -qy update
+apt-get -qy install -qy "$BUILD_DEPS"
+
+curl -sfL "$WIRING_PI_URL" | tar -C /tmp -xzvf -
+cd "/tmp/wiringPi-$WIRING_PI_REV"
+./build
+
+curl -sfL "$RFUTILS_URL" | tar -C /tmp -xzf -
+cd /tmp/433utils/RPi_utils-$RFUTILS_REV
+make
+mv send /usr/bin/433-send
+mv codesend RFSniffer /usr/bin/
+
+groupadd gpio
+useradd openhab
+usermod -a -G gpio openhab
+
+mkdir -p /opt/jmx_exporter
+curl -Lsfo /opt/jmx_exporter/jmx_exporter.jar "$JMX_EXPORTER_URL"
+apt-get -qy remove --purge $BUILD_DEPS
+apt-get -qy autoremove
+apt-get -qy clean
+rm -rf /go/src /go/pkg /usr/local/go /var/lib/apt/lists/* /tmp/* /var/tmp/*
